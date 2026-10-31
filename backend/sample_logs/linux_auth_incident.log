@@ -1,0 +1,24 @@
+# ==============================================================================
+# MINI-SOC SYNTHETIC LAB DATASET: Linux Authentication & Privilege Escalation Log
+# NOTICE: THIS FILE CONTAINS 100% SIMULATED DATA FOR DEFENSIVE SECURITY TRAINING.
+# Hosts: bastion-01, db-prod-02
+# ==============================================================================
+2026-10-30T08:00:12Z db-prod-02 sshd[1104]: Accepted publickey for dba_sarah from 10.20.1.15 port 49120 ssh2: RSA SHA256:k9LmP2xQ8vR1nZ4cW7bY
+2026-10-30T08:01:05Z db-prod-02 sudo[1120]: dba_sarah : TTY=pts/0 ; PWD=/var/lib/postgresql ; USER=postgres ; COMMAND=/usr/bin/pg_ctl status
+2026-10-30T08:05:10Z bastion-01 sshd[2010]: Invalid user admin from 198.51.100.42 port 53101
+2026-10-30T08:05:14Z bastion-01 sshd[2012]: Failed password for invalid user admin from 198.51.100.42 port 53102 ssh2
+2026-10-30T08:05:22Z bastion-01 sshd[2015]: Failed password for deploy from 198.51.100.42 port 53108 ssh2
+2026-10-30T08:05:31Z bastion-01 sshd[2019]: Failed password for ubuntu from 198.51.100.42 port 53115 ssh2
+2026-10-30T08:05:45Z bastion-01 sshd[2023]: Failed password for postgres from 198.51.100.42 port 53121 ssh2
+2026-10-30T08:12:01Z bastion-01 sshd[2140]: Failed password for svc_backup from 203.0.113.88 port 44101 ssh2
+2026-10-30T08:12:08Z bastion-01 sshd[2142]: Failed password for svc_backup from 203.0.113.88 port 44102 ssh2
+2026-10-30T08:12:15Z bastion-01 sshd[2145]: Failed password for svc_backup from 203.0.113.88 port 44103 ssh2
+2026-10-30T08:12:24Z bastion-01 sshd[2148]: Failed password for svc_backup from 203.0.113.88 port 44104 ssh2
+2026-10-30T08:12:33Z bastion-01 sshd[2151]: Failed password for svc_backup from 203.0.113.88 port 44105 ssh2
+2026-10-30T08:12:41Z bastion-01 sshd[2155]: Failed password for svc_backup from 203.0.113.88 port 44106 ssh2
+2026-10-30T08:12:55Z bastion-01 sshd[2160]: Accepted password for svc_backup from 203.0.113.88 port 44110 ssh2
+2026-10-30T08:13:20Z bastion-01 sudo[2172]: svc_backup : user NOT in sudoers ; TTY=pts/1 ; PWD=/home/svc_backup ; USER=root ; COMMAND=/bin/cat /etc/shadow
+2026-10-30T08:13:48Z bastion-01 sudo[2179]: svc_backup : 3 incorrect password attempts ; TTY=pts/1 ; PWD=/home/svc_backup ; USER=root ; COMMAND=/usr/sbin/visudo
+2026-10-30T08:15:02Z bastion-01 useradd[2205]: new user: name=support_audit, UID=1055, GID=1055, home=/home/support_audit, shell=/bin/bash
+2026-10-30T08:15:19Z bastion-01 usermod[2212]: add 'svc_backup' to group 'sudo'
+2026-10-30T08:16:04Z bastion-01 sudo[2225]: svc_backup : TTY=pts/1 ; PWD=/home/svc_backup ; USER=root ; COMMAND=/usr/bin/crontab -l
