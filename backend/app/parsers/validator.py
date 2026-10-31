@@ -45,11 +45,14 @@ def validate_raw_content(content_bytes: bytes) -> str:
             f"Log file exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024 * 1024)} MB."
         )
     try:
-        text = content_bytes.decode("utf-8")
+        text = content_bytes.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise LogValidationError(
             "Log file must be valid UTF-8 encoded plain text or JSONL."
         ) from exc
+
+    # Sanitize null bytes to protect database and downstream string operations
+    text = text.replace("\x00", "")
 
     lines = text.splitlines()
     if len(lines) > MAX_LINES_PER_IMPORT:
@@ -63,9 +66,17 @@ def normalize_timestamp(
     raw_ts: str, default_year: int = DEFAULT_SYSLOG_YEAR
 ) -> str:
     """Normalize diverse timestamp strings into canonical ISO-8601 UTC (YYYY-MM-DDTHH:MM:SSZ)."""
-    cleaned = raw_ts.strip()
+    cleaned = raw_ts.strip().strip("[]\"'")
     if not cleaned:
         raise ValueError("Empty timestamp string")
+
+    # Handle numeric unix timestamps (seconds or milliseconds)
+    if cleaned.isdigit():
+        val = int(cleaned)
+        if len(cleaned) >= 12:
+            val = val / 1000.0
+        dt = datetime.fromtimestamp(val, tz=timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     m_syslog = SYSLOG_TS_RE.match(cleaned)
     if m_syslog:
@@ -77,7 +88,7 @@ def normalize_timestamp(
         dt = datetime(default_year, month, day, hour, minute, second, tzinfo=timezone.utc)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    iso_candidate = cleaned
+    iso_candidate = cleaned.replace("/", "-")
     if iso_candidate.endswith("Z") or iso_candidate.endswith("z"):
         iso_candidate = iso_candidate[:-1] + "+00:00"
 

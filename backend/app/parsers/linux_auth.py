@@ -256,70 +256,57 @@ def parse_linux_auth_log(
     """Parse Linux auth.log / syslog lines into NormalizedEventCreate objects."""
     result = ParseResult()
     for idx, raw_line in enumerate(text.splitlines(), start=1):
-        stripped = raw_line.strip()
+        stripped = raw_line.strip().replace("\x00", "")
         if not stripped or stripped.startswith("#"):
             continue
 
         result.total_lines_processed += 1
-        header_match = HEADER_ISO_RE.match(stripped) or HEADER_SYSLOG_RE.match(stripped)
-        if not header_match:
-            result.errors.append(
-                ParseErrorDetail(
-                    line_number=idx,
-                    raw_excerpt=stripped[:160],
-                    reason="Malformed syslog header (expected '<timestamp> <host> <service>[pid]: <message>')",
-                )
-            )
-            continue
-
-        raw_ts = header_match.group("ts")
-        host = header_match.group("host")
-        service = header_match.group("service")
-        pid = header_match.group("pid")
-        message = header_match.group("message")
-
         try:
-            iso_ts = normalize_timestamp(raw_ts, default_year=default_year)
-        except ValueError as exc:
-            result.errors.append(
-                ParseErrorDetail(
-                    line_number=idx,
-                    raw_excerpt=stripped[:160],
-                    reason=str(exc),
+            header_match = HEADER_ISO_RE.match(stripped) or HEADER_SYSLOG_RE.match(stripped)
+            if not header_match:
+                result.errors.append(
+                    ParseErrorDetail(
+                        line_number=idx,
+                        raw_excerpt=stripped[:160],
+                        reason="Malformed syslog header (expected '<timestamp> <host> <service>[pid]: <message>')",
+                    )
                 )
-            )
-            continue
+                continue
 
-        classified = _classify_linux_message(service, message)
-        if not classified:
-            result.errors.append(
-                ParseErrorDetail(
-                    line_number=idx,
-                    raw_excerpt=stripped[:160],
-                    reason=f"Unsupported or unrecognized Linux auth message pattern for service '{service}'",
+            raw_ts = header_match.group("ts")
+            host = header_match.group("host")
+            service = header_match.group("service")
+            pid = header_match.group("pid")
+            message = header_match.group("message")
+
+            try:
+                iso_ts = normalize_timestamp(raw_ts, default_year=default_year)
+            except ValueError as exc:
+                result.errors.append(
+                    ParseErrorDetail(
+                        line_number=idx,
+                        raw_excerpt=stripped[:160],
+                        reason=str(exc),
+                    )
                 )
-            )
-            continue
+                continue
 
-        event_type, user, actor_user, source_ip, details = classified
-        if pid:
-            details["pid"] = int(pid)
+            classified = _classify_linux_message(service, message)
+            if not classified:
+                result.errors.append(
+                    ParseErrorDetail(
+                        line_number=idx,
+                        raw_excerpt=stripped[:160],
+                        reason=f"Unsupported or unrecognized Linux auth message pattern for service '{service}'",
+                    )
+                )
+                continue
 
-        event_hash = compute_event_hash(
-            timestamp=iso_ts,
-            host=host,
-            source_format=SourceFormat.LINUX_AUTH,
-            event_type=event_type,
-            user=user,
-            actor_user=actor_user,
-            source_ip=source_ip,
-            service=service,
-            raw_event=stripped,
-        )
+            event_type, user, actor_user, source_ip, details = classified
+            if pid:
+                details["pid"] = int(pid)
 
-        result.events.append(
-            NormalizedEventCreate(
-                event_hash=event_hash,
+            event_hash = compute_event_hash(
                 timestamp=iso_ts,
                 host=host,
                 source_format=SourceFormat.LINUX_AUTH,
@@ -329,9 +316,31 @@ def parse_linux_auth_log(
                 source_ip=source_ip,
                 service=service,
                 raw_event=stripped,
-                details=details,
-                is_simulated=is_simulated,
             )
-        )
+
+            result.events.append(
+                NormalizedEventCreate(
+                    event_hash=event_hash,
+                    timestamp=iso_ts,
+                    host=host,
+                    source_format=SourceFormat.LINUX_AUTH,
+                    event_type=event_type,
+                    user=user,
+                    actor_user=actor_user,
+                    source_ip=source_ip,
+                    service=service,
+                    raw_event=stripped,
+                    details=details,
+                    is_simulated=is_simulated,
+                )
+            )
+        except Exception as exc:
+            result.errors.append(
+                ParseErrorDetail(
+                    line_number=idx,
+                    raw_excerpt=stripped[:160],
+                    reason=f"Unhandled parsing error: {exc}",
+                )
+            )
 
     return result

@@ -58,6 +58,7 @@ export function App() {
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [alerts, setAlerts] = useState<AlertSummary[]>([]);
   const [selectedAlertId, setSelectedAlertId] = useState<number | null>(null);
+  const selectedAlertIdRef = React.useRef<number | null>(null);
   const [selectedAlert, setSelectedAlert] = useState<AlertDetail | null>(null);
 
   const [events, setEvents] = useState<NormalizedEvent[]>([]);
@@ -134,20 +135,25 @@ export function App() {
       setPrivGroupsInput(threshData.monitored_privileged_groups.join(', '));
 
       if (alertsData.length > 0) {
+        const activeId = selectedAlertIdRef.current;
         const currentStillExists = alertsData.some(
-          (a) => a.id === selectedAlertId
+          (a) => a.id === activeId
         );
-        const targetId = currentStillExists
-          ? selectedAlertId!
+        const targetId = currentStillExists && activeId
+          ? activeId
           : alertsData[0].id;
         setSelectedAlertId(targetId);
+        selectedAlertIdRef.current = targetId;
         const detail = await api.getAlertDetail(targetId);
-        setSelectedAlert(detail);
-        setStatusInput(detail.status);
-        setDispositionInput(detail.disposition);
-        setDispositionReasonInput(detail.disposition_reason || '');
+        if (selectedAlertIdRef.current === targetId) {
+          setSelectedAlert(detail);
+          setStatusInput(detail.status);
+          setDispositionInput(detail.disposition);
+          setDispositionReasonInput(detail.disposition_reason || '');
+        }
       } else {
         setSelectedAlertId(null);
+        selectedAlertIdRef.current = null;
         setSelectedAlert(null);
       }
     } catch (err) {
@@ -155,7 +161,7 @@ export function App() {
         err instanceof Error ? err.message : 'Failed to load SOC data'
       );
     }
-  }, [alertFilters, selectedAlertId]);
+  }, [alertFilters]);
 
   const refreshEvents = useCallback(async () => {
     try {
@@ -178,12 +184,15 @@ export function App() {
 
   const handleSelectAlert = async (alertId: number) => {
     setSelectedAlertId(alertId);
+    selectedAlertIdRef.current = alertId;
     try {
       const detail = await api.getAlertDetail(alertId);
-      setSelectedAlert(detail);
-      setStatusInput(detail.status);
-      setDispositionInput(detail.disposition);
-      setDispositionReasonInput(detail.disposition_reason || '');
+      if (selectedAlertIdRef.current === alertId) {
+        setSelectedAlert(detail);
+        setStatusInput(detail.status);
+        setDispositionInput(detail.disposition);
+        setDispositionReasonInput(detail.disposition_reason || '');
+      }
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : 'Failed to load alert detail'
@@ -283,6 +292,9 @@ export function App() {
       );
       setSelectedAlert(updated);
       setStatusInput(updated.status);
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === updated.id ? { ...a, status: updated.status } : a))
+      );
       setNoteInput('');
       setBannerMessage(`Alert #${updated.id} acknowledged by ${analystName}.`);
       await refreshCoreData();
@@ -309,6 +321,16 @@ export function App() {
         note: noteInput.trim() || undefined,
       });
       setSelectedAlert(updated);
+      setStatusInput(updated.status);
+      setDispositionInput(updated.disposition);
+      setDispositionReasonInput(updated.disposition_reason || '');
+      setAlerts((prev) =>
+        prev.map((a) =>
+          a.id === updated.id
+            ? { ...a, status: updated.status, disposition: updated.disposition, disposition_reason: updated.disposition_reason }
+            : a
+        )
+      );
       setNoteInput('');
       setBannerMessage(
         `Saved investigation state for Alert #${updated.id} (${updated.status.toUpperCase()}).`

@@ -15,8 +15,10 @@ def get_db_path() -> str:
 
 def init_db(db_path: str | None = None) -> None:
     target_path = db_path or get_db_path()
-    conn = sqlite3.connect(target_path)
+    conn = sqlite3.connect(target_path, timeout=30.0)
     try:
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA busy_timeout = 30000;")
         conn.execute("PRAGMA foreign_keys = ON;")
         conn.executescript(
             """
@@ -126,9 +128,10 @@ def init_db(db_path: str | None = None) -> None:
 @contextmanager
 def get_connection(db_path: str | None = None) -> Iterator[sqlite3.Connection]:
     target_path = db_path or get_db_path()
-    conn = sqlite3.connect(target_path)
+    conn = sqlite3.connect(target_path, timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA busy_timeout = 30000;")
     try:
         yield conn
     finally:
